@@ -1,7 +1,9 @@
 package com.example.myapplication.ui.screens
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -80,6 +82,9 @@ fun BrowseStoreScreen() {
     // ---- Barcode scanner state ----
     var showScanner by remember { mutableStateOf(false) }
     var scannerGtin by remember { mutableStateOf("") }
+
+    // ---- Share list state ----
+    var showShareListPicker by remember { mutableStateOf(false) }
 
     // Load stores on mount
     LaunchedEffect(Unit) {
@@ -416,12 +421,40 @@ fun BrowseStoreScreen() {
                     }
                     Spacer(Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(hqName, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
-                        Text(store.location, fontSize = 13.sp, color = Color.White.copy(alpha = 0.8f))
+                        Text(hqName, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+                        Text(store.location, fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f))
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("${storePrices.size}", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
-                        Text("products", fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f))
+                    // Map button — opens Google Maps
+                    if (store.latitude != null && store.longitude != null || store.address != null) {
+                        val context = LocalContext.current
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                val uri = if (store.latitude != null && store.longitude != null) {
+                                    Uri.parse("geo:${store.latitude},${store.longitude}?q=${store.latitude},${store.longitude}(${Uri.encode(hqName + " - " + store.location)})")
+                                } else {
+                                    Uri.parse("geo:0,0?q=${Uri.encode(store.address)}")
+                                }
+                                val mapIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+                                    setPackage("com.google.android.apps.maps")
+                                }
+                                if (mapIntent.resolveActivity(context.packageManager) != null) {
+                                    context.startActivity(mapIntent)
+                                } else {
+                                    val browserUri = if (store.latitude != null && store.longitude != null) {
+                                        Uri.parse("https://www.google.com/maps/search/?api=1&query=${store.latitude},${store.longitude}")
+                                    } else {
+                                        Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(store.address)}")
+                                    }
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
+                                }
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White)
+                        ) {
+                            Text("Map", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -475,8 +508,8 @@ fun BrowseStoreScreen() {
                 OutlinedTextField(
                     value = productSearch,
                     onValueChange = { productSearch = it; scannerGtin = "" },
-                    label = { Text("Search products...") },
-                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    placeholder = { Text("Search item...", fontSize = 12.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(20.dp)) },
                     trailingIcon = {
                         if (productSearch.isNotBlank()) {
                             IconButton(onClick = { productSearch = ""; scannerGtin = "" }) {
@@ -484,9 +517,10 @@ fun BrowseStoreScreen() {
                             }
                         }
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).height(48.dp),
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
                 )
                 FilledTonalButton(
                     onClick = {
@@ -498,7 +532,7 @@ fun BrowseStoreScreen() {
                     colors = ButtonDefaults.filledTonalButtonColors(
                         containerColor = if (showScanner) WiseUpColors.Green600 else WiseUpColors.Green100
                     ),
-                    modifier = Modifier.height(56.dp)
+                    modifier = Modifier.height(48.dp)
                 ) {
                     Icon(
                         Icons.Default.QrCodeScanner,
@@ -506,6 +540,103 @@ fun BrowseStoreScreen() {
                         tint = if (showScanner) Color.White else WiseUpColors.Green600
                     )
                 }
+                // Share List button
+                FilledTonalButton(
+                    onClick = { showShareListPicker = true },
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = WiseUpColors.Green100
+                    ),
+                    modifier = Modifier.height(48.dp)
+                ) {
+                    Icon(Icons.Default.Share, null, Modifier.size(16.dp), tint = WiseUpColors.Green600)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Share", fontSize = 11.sp, color = WiseUpColors.Green600)
+                }
+            }
+
+            // Share list picker dialog
+            if (showShareListPicker) {
+                val shareContext = LocalContext.current
+                AlertDialog(
+                    onDismissRequest = { showShareListPicker = false },
+                    title = { Text("Share Shopping List", fontWeight = FontWeight.Bold) },
+                    text = {
+                        if (shoppingLists.isEmpty()) {
+                            Text("You have no shopping lists yet.")
+                        } else {
+                            Column {
+                                Text("Select a list to share:", fontSize = 13.sp, color = WiseUpColors.TextSecondary)
+                                Spacer(Modifier.height(8.dp))
+                                shoppingLists.forEach { list ->
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = CardDefaults.cardColors(containerColor = WiseUpColors.Green100),
+                                        onClick = {
+                                            showShareListPicker = false
+                                            scope.launch {
+                                                try {
+                                                    val items: List<ShoppingListItem> = SupabaseClient.client
+                                                        .from("shopping_list_items")
+                                                        .select { filter { eq("shopping_list_id", list.id) } }
+                                                        .decodeList()
+                                                    val gtins = items.map { it.productGtin }.distinct()
+                                                    val prods: List<Product> = if (gtins.isNotEmpty()) {
+                                                        SupabaseClient.client.from("products")
+                                                            .select { filter { isIn("gtin", gtins) } }
+                                                            .decodeList()
+                                                    } else emptyList()
+                                                    val prodMap = prods.associateBy { it.gtin }
+                                                    val listText = buildString {
+                                                        appendLine("🛒 ${list.name}")
+                                                        if (list.budget != null) appendLine("Budget: ${"%.2f".format(list.budget)}")
+                                                        appendLine("────────────────")
+                                                        items.forEachIndexed { idx, item ->
+                                                            val name = prodMap[item.productGtin]?.description ?: item.productGtin
+                                                            appendLine("${idx + 1}. $name  x${item.quantity}")
+                                                        }
+                                                        appendLine("────────────────")
+                                                        appendLine("Shared from WiseUp Shop")
+                                                    }
+                                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = "text/plain"
+                                                        putExtra(Intent.EXTRA_TEXT, listText)
+                                                    }
+                                                    shareContext.startActivity(Intent.createChooser(shareIntent, "Share list via"))
+                                                } catch (_: Exception) { }
+                                            }
+                                        }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.ShoppingCart, null, Modifier.size(20.dp), tint = WiseUpColors.Green600)
+                                            Spacer(Modifier.width(10.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(list.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                                if (list.budget != null) {
+                                                    Text("Budget: ${"%.2f".format(list.budget)}", fontSize = 11.sp, color = WiseUpColors.TextSecondary)
+                                                }
+                                            }
+                                            Icon(Icons.Default.Share, null, Modifier.size(18.dp), tint = WiseUpColors.Green600)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { showShareListPicker = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
 
             // Inline barcode scanner
