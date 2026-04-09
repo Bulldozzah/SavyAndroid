@@ -75,7 +75,7 @@ fun ProfileScreen() {
 
         if (isLoading) {
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = WiseUpColors.Green600)
+                CircularProgressIndicator(color = WiseUpColors.Blue500)
             }
         } else {
             Card(
@@ -172,7 +172,7 @@ fun ProfileScreen() {
 
                     successMsg?.let {
                         Spacer(Modifier.height(8.dp))
-                        Text(it, color = WiseUpColors.Green600, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                        Text(it, color = WiseUpColors.Blue500, fontWeight = FontWeight.Medium, fontSize = 13.sp)
                     }
                     errorMsg?.let {
                         Spacer(Modifier.height(8.dp))
@@ -212,7 +212,7 @@ fun ProfileScreen() {
                         },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                        colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                         enabled = !isSaving
                     ) {
                         if (isSaving) {

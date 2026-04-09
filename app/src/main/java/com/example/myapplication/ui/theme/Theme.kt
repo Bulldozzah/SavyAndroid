@@ -6,16 +6,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val WiseUpColorScheme = lightColorScheme(
-    primary = Green600,
+    primary = Blue500,
     onPrimary = Color.White,
-    primaryContainer = Green100,
-    secondary = Blue500,
+    primaryContainer = Blue100,
+    onPrimaryContainer = Blue600,
+    secondary = Orange500,
     onSecondary = Color.White,
-    background = Color(0xFFEDE8EA),
+    secondaryContainer = Orange100,
+    onSecondaryContainer = Color(0xFF5D3A00),
+    tertiary = Green600,
+    onTertiary = Color.White,
+    background = Color(0xFFF7F8FA),
+    onBackground = Color(0xFF1A1D26),
     surface = Color.White,
-    onBackground = Color(0xFF1F2937),
-    onSurface = Color(0xFF1F2937),
-    error = Color(0xFFEF4444)
+    onSurface = Color(0xFF1A1D26),
+    surfaceVariant = Color(0xFFF5F6F8),
+    onSurfaceVariant = Color(0xFF6B7280),
+    outline = Color(0xFFE5E7EB),
+    error = Color(0xFFEF4444),
+    onError = Color.White
 )
 
 @Composable

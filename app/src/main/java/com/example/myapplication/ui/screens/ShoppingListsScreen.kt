@@ -1,7 +1,7 @@
 package com.example.myapplication.ui.screens
 
 import android.content.Intent
-import android.net.Uri
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -125,7 +125,7 @@ fun ShoppingListsScreen() {
                             } catch (_: Exception) { }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                    colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                     enabled = newListName.isNotBlank()
                 ) { Text("Create") }
             },
@@ -219,7 +219,7 @@ fun ShoppingListsScreen() {
                             } catch (_: Exception) { }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600)
+                    colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500)
                 ) { Text("Save") }
             },
             dismissButton = { TextButton(onClick = { showBudgetDialog = null }) { Text("Cancel") } }
@@ -236,7 +236,7 @@ fun ShoppingListsScreen() {
             Text("Shopping Lists", fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Button(
                 onClick = { showCreateDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -247,7 +247,7 @@ fun ShoppingListsScreen() {
 
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = WiseUpColors.Green600)
+                CircularProgressIndicator(color = WiseUpColors.Blue500)
             }
         } else if (lists.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -311,17 +311,17 @@ fun ShoppingListsScreen() {
                             Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column {
                                     Text("In-stock total", fontSize = 11.sp, color = WiseUpColors.TextMuted)
-                                    Text("%.2f".format(inStockTotal), fontWeight = FontWeight.Bold, color = WiseUpColors.Green600)
+                                    Text(CurrencyProvider.formatPrice(inStockTotal), fontWeight = FontWeight.Bold, color = WiseUpColors.Blue500)
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text("All items total", fontSize = 11.sp, color = WiseUpColors.TextMuted)
-                                    Text("%.2f".format(allTotal), fontWeight = FontWeight.Bold)
+                                    Text(CurrencyProvider.formatPrice(allTotal), fontWeight = FontWeight.Bold)
                                 }
                             }
 
                             list.budget?.let { budget ->
                                 Spacer(Modifier.height(4.dp))
-                                Text("Budget: %.2f".format(budget), fontSize = 12.sp, color = if (allTotal > budget) WiseUpColors.Red500 else WiseUpColors.Green600)
+                                Text("Budget: ${CurrencyProvider.formatPrice(budget)}", fontSize = 12.sp, color = if (allTotal > budget) WiseUpColors.Red500 else WiseUpColors.Blue500)
                             }
 
                             // Action buttons
@@ -330,7 +330,7 @@ fun ShoppingListsScreen() {
                                     Icon(Icons.Default.Store, null, tint = WiseUpColors.Blue500)
                                 }
                                 IconButton(onClick = { showBudgetDialog = list.id }) {
-                                    Icon(Icons.Default.AttachMoney, null, tint = WiseUpColors.Green600)
+                                    Icon(Icons.Default.AttachMoney, null, tint = WiseUpColors.Blue500)
                                 }
                                 IconButton(onClick = {
                                     val msg = buildString {
@@ -340,17 +340,18 @@ fun ShoppingListsScreen() {
                                             val prod = products[item.productGtin]
                                             val price = priceMap[item.productGtin]
                                             append("- ${prod?.description ?: item.productGtin} x${item.quantity}")
-                                            price?.let { append(" @ %.2f".format(it.price)) }
+                                            price?.let { append(" @ ${CurrencyProvider.formatPrice(it.price)}") }
                                             append("\n")
                                         }
-                                        append("\nTotal: %.2f".format(allTotal))
+                                        append("\nTotal: ${CurrencyProvider.formatPrice(allTotal)}")
                                     }
-                                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                                        data = Uri.parse("https://wa.me/?text=${Uri.encode(msg)}")
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, msg)
                                     }
-                                    context.startActivity(intent)
+                                    context.startActivity(Intent.createChooser(shareIntent, "Share list via"))
                                 }) {
-                                    Icon(Icons.Default.Share, null, tint = WiseUpColors.Green500)
+                                    Icon(Icons.Default.Share, null, tint = WiseUpColors.Blue500)
                                 }
                                 IconButton(onClick = { showDeleteDialog = list.id }) {
                                     Icon(Icons.Default.Delete, null, tint = WiseUpColors.Red500)
@@ -374,13 +375,13 @@ fun ShoppingListsScreen() {
                                         }
                                         Column(horizontalAlignment = Alignment.End) {
                                             sp?.let {
-                                                Text("%.2f".format(it.price * item.quantity), fontWeight = FontWeight.SemiBold)
+                                                Text(CurrencyProvider.formatPrice(it.price * item.quantity), fontWeight = FontWeight.SemiBold)
                                                 VerificationBadge(verified = it.verified)
                                                 Spacer(Modifier.height(2.dp))
                                                 Text(
                                                     if (it.inStock) "In Stock" else "Out of Stock",
                                                     fontSize = 11.sp,
-                                                    color = if (it.inStock) WiseUpColors.Green600 else WiseUpColors.Red500
+                                                    color = if (it.inStock) WiseUpColors.Blue500 else WiseUpColors.Red500
                                                 )
                                             } ?: Text("No price", fontSize = 12.sp, color = WiseUpColors.TextMuted)
                                         }

@@ -121,6 +121,17 @@ data class StorePriceUpsert(
 )
 
 @Serializable
+data class StoreUpdate(
+    val email: String? = null,
+    val contact: String? = null,
+    val whatsapp: String? = null,
+    val location: String? = null,
+    val address: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
+
+@Serializable
 data class StoreFeedbackEntry(
     @SerialName("user_id") val userId: String,
     @SerialName("store_id") val storeId: String,
@@ -128,6 +139,18 @@ data class StoreFeedbackEntry(
     @SerialName("feedback_type") val feedbackType: String,
     val title: String? = null,
     val body: String
+)
+
+@Serializable
+data class StoreFeedbackRead(
+    val id: String = "",
+    @SerialName("user_id") val userId: String = "",
+    @SerialName("store_id") val storeId: String = "",
+    val rating: Int = 0,
+    @SerialName("feedback_type") val feedbackType: String = "",
+    val title: String? = null,
+    val body: String = "",
+    @SerialName("created_at") val createdAt: String = ""
 )
 
 @Serializable
@@ -182,5 +205,6 @@ data class ComparisonResult(
     val totalAll: Double,
     val itemsInStock: Int,
     val itemsMissing: Int,
-    val priceMap: Map<String, StorePrice?>
+    val priceMap: Map<String, StorePrice?>,
+    val distanceKm: Double? = null
 )

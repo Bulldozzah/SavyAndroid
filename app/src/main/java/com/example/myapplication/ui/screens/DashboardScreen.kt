@@ -82,7 +82,7 @@ fun DashboardScreen() {
     ) {
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = WiseUpColors.Green600)
+                CircularProgressIndicator(color = WiseUpColors.Blue500)
             }
         } else {
             // Welcome banner
@@ -95,10 +95,10 @@ fun DashboardScreen() {
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .background(
                             Brush.horizontalGradient(
-                                listOf(WiseUpColors.Green500, WiseUpColors.Blue500)
+                                listOf(WiseUpColors.Blue500, WiseUpColors.Blue600)
                             )
                         )
                         .padding(20.dp)
@@ -208,7 +208,7 @@ fun DashboardScreen() {
                             .fillMaxSize()
                             .background(
                                 Brush.horizontalGradient(
-                                    listOf(WiseUpColors.Green500, WiseUpColors.Blue500)
+                                    listOf(WiseUpColors.Blue500, WiseUpColors.Blue600)
                                 )
                             ),
                         contentAlignment = Alignment.Center
@@ -270,13 +270,13 @@ fun DashboardScreen() {
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(110.dp)
-                                        .background(WiseUpColors.Green100),
+                                        .background(WiseUpColors.Orange100),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         Icons.Default.LocalOffer,
                                         contentDescription = null,
-                                        tint = WiseUpColors.Green600,
+                                        tint = WiseUpColors.Orange500,
                                         modifier = Modifier.size(32.dp)
                                     )
                                 }
@@ -290,10 +290,10 @@ fun DashboardScreen() {
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "%.2f".format(promo.promotionalPrice),
+                                        text = CurrencyProvider.formatPrice(promo.promotionalPrice),
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = WiseUpColors.Green600
+                                        color = WiseUpColors.Blue500
                                     )
                                 }
                             }
@@ -397,14 +397,14 @@ fun DashboardScreen() {
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(WiseUpColors.Green100),
+                                    .clip(CircleShape)
+                                    .background(WiseUpColors.Orange100),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     icon,
                                     contentDescription = null,
-                                    tint = WiseUpColors.Green600,
+                                    tint = WiseUpColors.Orange500,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }

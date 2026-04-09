@@ -137,7 +137,7 @@ fun SearchProductsScreen() {
                             } catch (_: Exception) { }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                    colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                     enabled = selectedListId != null
                 ) { Text("Add") }
             },
@@ -183,14 +183,14 @@ fun SearchProductsScreen() {
                 shape = RoundedCornerShape(12.dp),
                 contentPadding = PaddingValues(12.dp),
                 colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = if (showScanner) WiseUpColors.Green600 else WiseUpColors.Green100
+                    containerColor = if (showScanner) WiseUpColors.Blue500 else WiseUpColors.Blue100
                 ),
                 modifier = Modifier.height(56.dp)
             ) {
                 Icon(
                     Icons.Default.QrCodeScanner,
                     contentDescription = "Scan barcode",
-                    tint = if (showScanner) Color.White else WiseUpColors.Green600
+                    tint = if (showScanner) Color.White else WiseUpColors.Blue500
                 )
             }
         }
@@ -291,7 +291,7 @@ fun SearchProductsScreen() {
                             modifier = Modifier
                                 .align(Alignment.Center)
                                 .size(180.dp, 80.dp)
-                                .border(2.dp, WiseUpColors.Green600, RoundedCornerShape(8.dp))
+                                .border(2.dp, WiseUpColors.Blue500, RoundedCornerShape(8.dp))
                         )
                         Text(
                             "Point at barcode to search product",
@@ -326,7 +326,7 @@ fun SearchProductsScreen() {
         Button(
             onClick = { search() },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+            colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
             shape = RoundedCornerShape(12.dp),
             enabled = query.isNotBlank() && !isSearching
         ) {
@@ -340,13 +340,13 @@ fun SearchProductsScreen() {
         successMsg?.let {
             Spacer(Modifier.height(8.dp))
             Card(
-                colors = CardDefaults.cardColors(containerColor = WiseUpColors.Green100),
+                colors = CardDefaults.cardColors(containerColor = WiseUpColors.Blue100),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CheckCircle, null, tint = WiseUpColors.Green600)
+                    Icon(Icons.Default.CheckCircle, null, tint = WiseUpColors.Blue500)
                     Spacer(Modifier.width(8.dp))
-                    Text(it, color = WiseUpColors.Green600, fontWeight = FontWeight.Medium)
+                    Text(it, color = WiseUpColors.Blue500, fontWeight = FontWeight.Medium)
                 }
             }
             LaunchedEffect(it) {
@@ -386,7 +386,7 @@ fun SearchProductsScreen() {
                                     quantity = 1
                                     showListPicker = true
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                                colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                             ) {

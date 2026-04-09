@@ -230,7 +230,7 @@ fun ProfileSetupScreen(onComplete: () -> Unit) {
                             .fillMaxWidth()
                             .height(48.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                        colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                         enabled = !isLoading
                     ) {
                         if (isLoading) {

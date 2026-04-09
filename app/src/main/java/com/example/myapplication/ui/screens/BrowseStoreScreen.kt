@@ -152,7 +152,7 @@ fun BrowseStoreScreen() {
                                 RadioButton(
                                     selected = selectedListId == list.id,
                                     onClick = { selectedListId = list.id },
-                                    colors = RadioButtonDefaults.colors(selectedColor = WiseUpColors.Green600)
+                                    colors = RadioButtonDefaults.colors(selectedColor = WiseUpColors.Blue500)
                                 )
                                 Text(list.name, modifier = Modifier.padding(start = 4.dp))
                             }
@@ -181,7 +181,7 @@ fun BrowseStoreScreen() {
                             selectedListId = null
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                    colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                     enabled = selectedListId != null
                 ) { Text("Add") }
             },
@@ -209,19 +209,19 @@ fun BrowseStoreScreen() {
                     if (sp.verified) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("Verified Price: ", fontSize = 13.sp, color = WiseUpColors.TextSecondary)
-                            Text("%.2f".format(sp.price), fontWeight = FontWeight.Bold, color = WiseUpColors.Green600)
+                            Text(CurrencyProvider.formatPrice(sp.price), fontWeight = FontWeight.Bold, color = WiseUpColors.Green600)
                         }
                     }
                     sp.unverifiedPrice?.let { uv ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("Community Price: ", fontSize = 13.sp, color = WiseUpColors.TextSecondary)
-                            Text("%.2f".format(uv), fontWeight = FontWeight.Bold, color = WiseUpColors.Red500)
+                            Text(CurrencyProvider.formatPrice(uv), fontWeight = FontWeight.Bold, color = WiseUpColors.Red500)
                         }
                     }
                     if (!sp.verified && sp.unverifiedPrice == null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("Current Price: ", fontSize = 13.sp, color = WiseUpColors.TextSecondary)
-                            Text("%.2f".format(sp.price), fontWeight = FontWeight.Bold)
+                            Text(CurrencyProvider.formatPrice(sp.price), fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -271,7 +271,7 @@ fun BrowseStoreScreen() {
                             newPriceInput = ""
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                    colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                     enabled = newPriceInput.toDoubleOrNull() != null && !isSubmittingPrice
                 ) {
                     if (isSubmittingPrice) {
@@ -315,7 +315,7 @@ fun BrowseStoreScreen() {
 
             if (isLoadingStores) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = WiseUpColors.Green600)
+                    CircularProgressIndicator(color = WiseUpColors.Blue500)
                 }
             } else {
                 val filtered = stores.filter { store ->
@@ -357,7 +357,7 @@ fun BrowseStoreScreen() {
                                     Icon(
                                         Icons.Default.Store,
                                         null,
-                                        tint = WiseUpColors.Green600,
+                                        tint = WiseUpColors.Orange500,
                                         modifier = Modifier.size(40.dp)
                                     )
                                     Spacer(Modifier.width(12.dp))
@@ -373,7 +373,7 @@ fun BrowseStoreScreen() {
                                             selectedStore = store
                                             loadStoreProducts(store.id)
                                         },
-                                        colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                                        colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                                         shape = RoundedCornerShape(12.dp),
                                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                                     ) {
@@ -401,7 +401,7 @@ fun BrowseStoreScreen() {
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = WiseUpColors.Green600)
+                colors = CardDefaults.cardColors(containerColor = WiseUpColors.Blue500)
             ) {
                 Row(
                     modifier = Modifier
@@ -530,14 +530,14 @@ fun BrowseStoreScreen() {
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(12.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = if (showScanner) WiseUpColors.Green600 else WiseUpColors.Green100
+                        containerColor = if (showScanner) WiseUpColors.Blue500 else WiseUpColors.Blue100
                     ),
                     modifier = Modifier.height(48.dp)
                 ) {
                     Icon(
                         Icons.Default.QrCodeScanner,
                         contentDescription = "Scan barcode",
-                        tint = if (showScanner) Color.White else WiseUpColors.Green600
+                        tint = if (showScanner) Color.White else WiseUpColors.Blue500
                     )
                 }
                 // Share List button
@@ -546,13 +546,13 @@ fun BrowseStoreScreen() {
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = WiseUpColors.Green100
+                        containerColor = WiseUpColors.Blue100
                     ),
                     modifier = Modifier.height(48.dp)
                 ) {
-                    Icon(Icons.Default.Share, null, Modifier.size(16.dp), tint = WiseUpColors.Green600)
+                    Icon(Icons.Default.Share, null, Modifier.size(16.dp), tint = WiseUpColors.Blue500)
                     Spacer(Modifier.width(4.dp))
-                    Text("Share", fontSize = 11.sp, color = WiseUpColors.Green600)
+                    Text("Share", fontSize = 11.sp, color = WiseUpColors.Blue500)
                 }
             }
 
@@ -575,7 +575,7 @@ fun BrowseStoreScreen() {
                                             .fillMaxWidth()
                                             .padding(vertical = 4.dp),
                                         shape = RoundedCornerShape(10.dp),
-                                        colors = CardDefaults.cardColors(containerColor = WiseUpColors.Green100),
+                                        colors = CardDefaults.cardColors(containerColor = WiseUpColors.Blue100),
                                         onClick = {
                                             showShareListPicker = false
                                             scope.launch {
@@ -593,7 +593,7 @@ fun BrowseStoreScreen() {
                                                     val prodMap = prods.associateBy { it.gtin }
                                                     val listText = buildString {
                                                         appendLine("🛒 ${list.name}")
-                                                        if (list.budget != null) appendLine("Budget: ${"%.2f".format(list.budget)}")
+                                                        if (list.budget != null) appendLine("Budget: ${CurrencyProvider.formatPrice(list.budget)}")
                                                         appendLine("────────────────")
                                                         items.forEachIndexed { idx, item ->
                                                             val name = prodMap[item.productGtin]?.description ?: item.productGtin
@@ -615,15 +615,15 @@ fun BrowseStoreScreen() {
                                             modifier = Modifier.padding(12.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Icon(Icons.Default.ShoppingCart, null, Modifier.size(20.dp), tint = WiseUpColors.Green600)
+                                            Icon(Icons.Default.ShoppingCart, null, Modifier.size(20.dp), tint = WiseUpColors.Blue500)
                                             Spacer(Modifier.width(10.dp))
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(list.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                                                 if (list.budget != null) {
-                                                    Text("Budget: ${"%.2f".format(list.budget)}", fontSize = 11.sp, color = WiseUpColors.TextSecondary)
+                                                    Text("Budget: ${CurrencyProvider.formatPrice(list.budget)}", fontSize = 11.sp, color = WiseUpColors.TextSecondary)
                                                 }
                                             }
-                                            Icon(Icons.Default.Share, null, Modifier.size(18.dp), tint = WiseUpColors.Green600)
+                                            Icon(Icons.Default.Share, null, Modifier.size(18.dp), tint = WiseUpColors.Blue500)
                                         }
                                     }
                                 }
@@ -735,7 +735,7 @@ fun BrowseStoreScreen() {
                                 modifier = Modifier
                                     .align(Alignment.Center)
                                     .size(180.dp, 80.dp)
-                                    .border(2.dp, WiseUpColors.Green600, RoundedCornerShape(8.dp))
+                                    .border(2.dp, WiseUpColors.Blue500, RoundedCornerShape(8.dp))
                             )
                             Text(
                                 "Point at barcode for quick lookup",
@@ -771,7 +771,7 @@ fun BrowseStoreScreen() {
 
             if (isLoadingProducts) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = WiseUpColors.Green600)
+                    CircularProgressIndicator(color = WiseUpColors.Blue500)
                 }
             } else if (storePrices.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -845,7 +845,7 @@ fun BrowseStoreScreen() {
                                         VerificationBadge(verified = true)
                                         Spacer(Modifier.width(8.dp))
                                         Text(
-                                            "%.2f".format(sp.price),
+                                            CurrencyProvider.formatPrice(sp.price),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 18.sp,
                                             color = WiseUpColors.Green600
@@ -858,7 +858,7 @@ fun BrowseStoreScreen() {
                                             VerificationBadge(verified = false)
                                             Spacer(Modifier.width(8.dp))
                                             Text(
-                                                "%.2f".format(uv),
+                                                CurrencyProvider.formatPrice(uv),
                                                 fontWeight = FontWeight.Medium,
                                                 fontSize = 14.sp,
                                                 color = WiseUpColors.Red500
@@ -871,7 +871,7 @@ fun BrowseStoreScreen() {
                                         VerificationBadge(verified = false)
                                         Spacer(Modifier.width(8.dp))
                                         Text(
-                                            "%.2f".format(sp.unverifiedPrice ?: sp.price),
+                                            CurrencyProvider.formatPrice(sp.unverifiedPrice ?: sp.price),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 18.sp,
                                             color = WiseUpColors.Red500
@@ -911,7 +911,7 @@ fun BrowseStoreScreen() {
                                     Button(
                                         onClick = { showAddToListDialog = sp },
                                         modifier = Modifier.weight(1f),
-                                        colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                                        colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                                         shape = RoundedCornerShape(10.dp),
                                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                                     ) {

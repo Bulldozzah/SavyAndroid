@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import com.example.myapplication.ui.theme.WiseUpColors
 
 @Composable
@@ -17,14 +16,7 @@ fun GradientBackground(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        WiseUpColors.GradientTop,
-                        WiseUpColors.GradientBottom
-                    )
-                )
-            ),
+            .background(WiseUpColors.Background),
         content = content
     )
 }

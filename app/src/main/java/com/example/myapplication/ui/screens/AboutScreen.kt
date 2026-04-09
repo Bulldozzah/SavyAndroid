@@ -30,7 +30,7 @@ fun AboutScreen() {
     ) {
         Spacer(Modifier.height(24.dp))
 
-        Text("WiseUp Shop", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = WiseUpColors.Green600)
+        Text("WiseUp Shop", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = WiseUpColors.Blue500)
         Text("Smart Shopping, Better Savings", fontSize = 14.sp, color = WiseUpColors.TextSecondary)
 
         Spacer(Modifier.height(24.dp))
@@ -82,7 +82,7 @@ fun AboutScreen() {
                         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(icon, null, tint = WiseUpColors.Green600, modifier = Modifier.size(20.dp))
+                        Icon(icon, null, tint = WiseUpColors.Blue500, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(12.dp))
                         Text(text, fontSize = 14.sp, color = WiseUpColors.TextPrimary)
                     }

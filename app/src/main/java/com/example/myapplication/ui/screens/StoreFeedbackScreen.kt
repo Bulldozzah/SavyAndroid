@@ -58,7 +58,7 @@ fun StoreFeedbackScreen() {
 
         if (isLoading) {
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = WiseUpColors.Green600)
+                CircularProgressIndicator(color = WiseUpColors.Blue500)
             }
         } else {
             Card(
@@ -115,7 +115,7 @@ fun StoreFeedbackScreen() {
                             label = { Text("Service", fontSize = 12.sp) },
                             modifier = Modifier.padding(end = 8.dp),
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = WiseUpColors.Green600,
+                                selectedContainerColor = WiseUpColors.Blue500,
                                 selectedLabelColor = Color.White
                             )
                         )
@@ -124,7 +124,7 @@ fun StoreFeedbackScreen() {
                             onClick = { feedbackType = "Product Quality & Experience" },
                             label = { Text("Product Quality", fontSize = 12.sp) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = WiseUpColors.Green600,
+                                selectedContainerColor = WiseUpColors.Blue500,
                                 selectedLabelColor = Color.White
                             )
                         )
@@ -178,7 +178,7 @@ fun StoreFeedbackScreen() {
 
                     successMsg?.let {
                         Spacer(Modifier.height(8.dp))
-                        Text(it, color = WiseUpColors.Green600, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text(it, color = WiseUpColors.Blue500, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
 
                     Spacer(Modifier.height(20.dp))
@@ -214,7 +214,7 @@ fun StoreFeedbackScreen() {
                         },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                        colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                         enabled = !isSubmitting
                     ) {
                         if (isSubmitting) {

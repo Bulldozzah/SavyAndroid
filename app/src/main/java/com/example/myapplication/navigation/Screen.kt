@@ -16,4 +16,10 @@ sealed class Screen(val route: String) {
     object ProductDetail : Screen("product_detail/{gtin}") {
         fun createRoute(gtin: String) = "product_detail/$gtin"
     }
+
+    // Store Owner screens
+    object MyStore : Screen("my_store")
+    object StoreOwnerPrices : Screen("store_owner_prices")
+    object StoreAdmin : Screen("store_admin")
+    object CustomerFeedback : Screen("customer_feedback")
 }

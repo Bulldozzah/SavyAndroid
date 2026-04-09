@@ -13,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -54,7 +53,7 @@ fun AuthScreen(
                 text = "WiseUp Shop",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
-                color = WiseUpColors.Green600,
+                color = WiseUpColors.Blue600,
                 textAlign = TextAlign.Center
             )
             Text(
@@ -89,7 +88,7 @@ fun AuthScreen(
                             label = { Text("Sign In") },
                             modifier = Modifier.padding(end = 8.dp),
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = WiseUpColors.Green600,
+                                selectedContainerColor = WiseUpColors.Blue500,
                                 selectedLabelColor = Color.White
                             )
                         )
@@ -101,7 +100,7 @@ fun AuthScreen(
                             },
                             label = { Text("Sign Up") },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = WiseUpColors.Green600,
+                                selectedContainerColor = WiseUpColors.Blue500,
                                 selectedLabelColor = Color.White
                             )
                         )
@@ -215,7 +214,7 @@ fun AuthScreen(
                             .height(48.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = WiseUpColors.Green600
+                            containerColor = WiseUpColors.Blue500
                         ),
                         enabled = !isLoading
                     ) {

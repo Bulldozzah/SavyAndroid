@@ -28,7 +28,7 @@ fun ContactScreen() {
     ) {
         Spacer(Modifier.height(24.dp))
 
-        Text("Contact Us", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = WiseUpColors.Green600)
+        Text("Contact Us", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = WiseUpColors.Blue500)
         Text("We'd love to hear from you", fontSize = 14.sp, color = WiseUpColors.TextSecondary)
 
         Spacer(Modifier.height(24.dp))
@@ -55,7 +55,7 @@ fun ContactScreen() {
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(icon, null, tint = WiseUpColors.Green600, modifier = Modifier.size(24.dp))
+                        Icon(icon, null, tint = WiseUpColors.Blue500, modifier = Modifier.size(24.dp))
                         Spacer(Modifier.width(16.dp))
                         Column {
                             Text(label, fontSize = 12.sp, color = WiseUpColors.TextMuted)
@@ -91,7 +91,7 @@ fun ContactScreen() {
                     ) {
                         Text(day, fontSize = 14.sp, color = WiseUpColors.TextPrimary)
                         Text(time, fontSize = 14.sp, fontWeight = FontWeight.Medium,
-                            color = if (time == "Closed") WiseUpColors.Red500 else WiseUpColors.Green600)
+                            color = if (time == "Closed") WiseUpColors.Red500 else WiseUpColors.Blue500)
                     }
                 }
             }

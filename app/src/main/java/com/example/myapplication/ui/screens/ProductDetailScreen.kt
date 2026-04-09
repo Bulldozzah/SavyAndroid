@@ -53,7 +53,7 @@ fun ProductDetailScreen(productGtin: String) {
 
     if (isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = WiseUpColors.Green600)
+            CircularProgressIndicator(color = WiseUpColors.Blue500)
         }
         return
     }
@@ -76,7 +76,7 @@ fun ProductDetailScreen(productGtin: String) {
                         Icon(
                             Icons.Default.ShoppingBag,
                             contentDescription = null,
-                            tint = WiseUpColors.Green600,
+                            tint = WiseUpColors.Blue500,
                             modifier = Modifier.size(32.dp)
                         )
                         Spacer(Modifier.width(12.dp))
@@ -184,7 +184,7 @@ fun ProductDetailScreen(productGtin: String) {
                                         label = { Text("Cheapest", fontSize = 10.sp) },
                                         colors = AssistChipDefaults.assistChipColors(
                                             containerColor = WiseUpColors.Green100,
-                                            labelColor = WiseUpColors.Green600
+                                            labelColor = WiseUpColors.Blue500
                                         ),
                                         modifier = Modifier.height(22.dp)
                                     )
@@ -197,10 +197,10 @@ fun ProductDetailScreen(productGtin: String) {
 
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
-                                "%.2f".format(sp.price),
+                                CurrencyProvider.formatPrice(sp.price),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 20.sp,
-                                color = if (isCheapest) WiseUpColors.Green600 else WiseUpColors.TextPrimary
+                                color = if (isCheapest) WiseUpColors.Blue500 else WiseUpColors.TextPrimary
                             )
                         }
                     }
@@ -218,14 +218,14 @@ fun ProductDetailScreen(productGtin: String) {
                             Text(
                                 if (sp.inStock) "In Stock" else "Out of Stock",
                                 fontSize = 11.sp,
-                                color = if (sp.inStock) WiseUpColors.Green600 else WiseUpColors.Red500
+                                color = if (sp.inStock) WiseUpColors.Blue500 else WiseUpColors.Red500
                             )
                             Spacer(Modifier.width(4.dp))
                             Icon(
                                 if (sp.inStock) Icons.Default.CheckCircle else Icons.Default.Cancel,
                                 null,
                                 modifier = Modifier.size(14.dp),
-                                tint = if (sp.inStock) WiseUpColors.Green600 else WiseUpColors.Red500
+                                tint = if (sp.inStock) WiseUpColors.Blue500 else WiseUpColors.Red500
                             )
                         }
                     }

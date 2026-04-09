@@ -319,7 +319,7 @@ fun BarcodeScannerScreen(onNavigateToProduct: ((String) -> Unit)? = null) {
                             modifier = Modifier
                                 .align(Alignment.Center)
                                 .size(200.dp, 100.dp)
-                                .border(2.dp, WiseUpColors.Green600, RoundedCornerShape(8.dp))
+                                .border(2.dp, WiseUpColors.Blue500, RoundedCornerShape(8.dp))
                         )
 
                         Text(
@@ -383,7 +383,7 @@ fun BarcodeScannerScreen(onNavigateToProduct: ((String) -> Unit)? = null) {
                 Button(
                     onClick = { scannedGtin = manualInput; isScannerActive = false },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                    colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.Search, null, Modifier.size(18.dp))
@@ -407,7 +407,7 @@ fun BarcodeScannerScreen(onNavigateToProduct: ((String) -> Unit)? = null) {
             Button(
                 onClick = { searchByName(manualInput) },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                 shape = RoundedCornerShape(12.dp),
                 enabled = manualInput.isNotBlank() && !isSearching
             ) {
@@ -450,7 +450,7 @@ fun BarcodeScannerScreen(onNavigateToProduct: ((String) -> Unit)? = null) {
                                     foundProduct = product
                                     productConfirmed = true
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                                colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
@@ -468,7 +468,7 @@ fun BarcodeScannerScreen(onNavigateToProduct: ((String) -> Unit)? = null) {
 
             if (isSearching) {
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = WiseUpColors.Green600, modifier = Modifier.size(32.dp))
+                    CircularProgressIndicator(color = WiseUpColors.Blue500, modifier = Modifier.size(32.dp))
                 }
             } else {
                 Card(
@@ -491,7 +491,7 @@ fun BarcodeScannerScreen(onNavigateToProduct: ((String) -> Unit)? = null) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Button(
                                         onClick = { productConfirmed = true },
-                                        colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                                        colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
                                         Icon(Icons.Default.Check, null, Modifier.size(16.dp))
@@ -539,7 +539,7 @@ fun BarcodeScannerScreen(onNavigateToProduct: ((String) -> Unit)? = null) {
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Current Price", fontSize = 12.sp, color = WiseUpColors.TextMuted)
-                            Text("%.2f".format(ep.price), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            Text(CurrencyProvider.formatPrice(ep.price), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                             Text(
                                 "Source: ${ep.source ?: "unknown"}",
                                 fontSize = 11.sp,
@@ -612,7 +612,7 @@ fun BarcodeScannerScreen(onNavigateToProduct: ((String) -> Unit)? = null) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Green600),
+                colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
                 shape = RoundedCornerShape(12.dp),
                 enabled = selectedStoreId != null && priceInput.isNotBlank() && !isSubmitting
             ) {
@@ -634,9 +634,9 @@ fun BarcodeScannerScreen(onNavigateToProduct: ((String) -> Unit)? = null) {
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F8E8))
                 ) {
                     Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CheckCircle, null, tint = WiseUpColors.Green600)
+                        Icon(Icons.Default.CheckCircle, null, tint = WiseUpColors.Blue500)
                         Spacer(Modifier.width(8.dp))
-                        Text(it, color = WiseUpColors.Green600, fontWeight = FontWeight.Medium)
+                        Text(it, color = WiseUpColors.Blue500, fontWeight = FontWeight.Medium)
                     }
                 }
             }

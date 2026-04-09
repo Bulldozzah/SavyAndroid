@@ -24,12 +24,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.myapplication.data.SupabaseClient
+import com.example.myapplication.data.*
 import com.example.myapplication.ui.components.GradientBackground
 import com.example.myapplication.ui.screens.*
 import com.example.myapplication.ui.theme.WiseUpColors
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.launch
 
 data class NavItem(
@@ -76,7 +77,7 @@ fun AppNavigation() {
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator(color = WiseUpColors.Green600)
+                CircularProgressIndicator(color = WiseUpColors.Blue500)
                 Spacer(Modifier.height(16.dp))
                 Text("Loading...", color = WiseUpColors.TextSecondary)
             }
@@ -105,7 +106,35 @@ fun MainScaffold(navController: NavHostController, onLogout: () -> Unit) {
     val scope = rememberCoroutineScope()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
-    val navItems = listOf(
+    // Store owner state
+    var isStoreOwner by remember { mutableStateOf(false) }
+    var storeOwnerMode by remember { mutableStateOf(false) }
+    var ownedStores by remember { mutableStateOf<List<Store>>(emptyList()) }
+    var storeHqNames by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var selectedStore by remember { mutableStateOf<Store?>(null) }
+    var showStorePicker by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        CurrencyProvider.load()
+        try {
+            val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return@LaunchedEffect
+            val roles: List<UserRole> = SupabaseClient.client.from("user_roles")
+                .select { filter { eq("user_id", userId) } }
+                .decodeList()
+            isStoreOwner = roles.any { it.role == "store_owner" }
+            if (isStoreOwner) {
+                val stores: List<Store> = SupabaseClient.client.from("stores")
+                    .select { filter { eq("store_owner_id", userId) } }
+                    .decodeList()
+                ownedStores = stores
+                if (stores.isNotEmpty()) selectedStore = stores.first()
+                val hqs: List<StoreHq> = SupabaseClient.client.from("store_hq").select().decodeList()
+                storeHqNames = hqs.associate { it.id to it.name }
+            }
+        } catch (_: Exception) { }
+    }
+
+    val shopperNavItems = listOf(
         NavItem(Screen.Dashboard.route, "Dashboard", Icons.Default.Home),
         NavItem(Screen.SearchProducts.route, "Search & Add Products", Icons.Default.Search),
         NavItem(Screen.BrowseStore.route, "Browse Store", Icons.Default.StoreMallDirectory),
@@ -114,6 +143,15 @@ fun MainScaffold(navController: NavHostController, onLogout: () -> Unit) {
         NavItem(Screen.ShoppingLists.route, "Shopping Lists", Icons.AutoMirrored.Filled.FormatListBulleted),
         NavItem(Screen.StoreFeedback.route, "Store Feedback", Icons.Default.Star),
     )
+
+    val storeOwnerNavItems = listOf(
+        NavItem(Screen.MyStore.route, "My Store", Icons.Default.Inventory),
+        NavItem(Screen.StoreOwnerPrices.route, "Store Prices", Icons.Default.AttachMoney),
+        NavItem(Screen.StoreAdmin.route, "Store Admin", Icons.Default.AdminPanelSettings),
+        NavItem(Screen.CustomerFeedback.route, "Customer Feedback", Icons.Default.RateReview),
+    )
+
+    val navItems = if (storeOwnerMode) storeOwnerNavItems else shopperNavItems
 
     val bottomNavItems = listOf(
         NavItem(Screen.Profile.route, "Profile", Icons.Default.Person),
@@ -138,7 +176,8 @@ fun MainScaffold(navController: NavHostController, onLogout: () -> Unit) {
                             .fillMaxWidth()
                             .background(
                                 Brush.horizontalGradient(
-                                    listOf(WiseUpColors.Green500, WiseUpColors.Blue500)
+                                    if (storeOwnerMode) listOf(WiseUpColors.Orange500, Color(0xFFE8920E))
+                                    else listOf(WiseUpColors.Blue500, WiseUpColors.Blue600)
                                 )
                             )
                             .padding(24.dp)
@@ -152,20 +191,73 @@ fun MainScaffold(navController: NavHostController, onLogout: () -> Unit) {
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "Smart Shopper",
+                                if (storeOwnerMode) "Store Owner" else "Smart Shopper",
                                 fontSize = 14.sp,
                                 color = Color.White.copy(alpha = 0.8f)
                             )
-                            Spacer(Modifier.height(8.dp))
-                            AssistChip(
-                                onClick = {},
-                                label = { Text("Shopper", fontSize = 11.sp) },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = WiseUpColors.Green100,
-                                    labelColor = WiseUpColors.Green600
-                                ),
-                                modifier = Modifier.height(24.dp)
-                            )
+                            if (isStoreOwner) {
+                                Spacer(Modifier.height(8.dp))
+                                AssistChip(
+                                    onClick = {
+                                        storeOwnerMode = !storeOwnerMode
+                                        scope.launch { drawerState.close() }
+                                        val dest = if (storeOwnerMode) Screen.MyStore.route else Screen.Dashboard.route
+                                        navController.navigate(dest) {
+                                            popUpTo(0) { inclusive = true }
+                                            launchSingleTop = true
+                                        }
+                                    },
+                                    label = {
+                                        Text(
+                                            if (storeOwnerMode) "Switch to Shopper" else "Switch to Store Owner",
+                                            fontSize = 11.sp
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            if (storeOwnerMode) Icons.Default.ShoppingCart else Icons.Default.Store,
+                                            null, Modifier.size(14.dp), tint = Color.White
+                                        )
+                                    },
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        containerColor = Color.White.copy(alpha = 0.25f),
+                                        labelColor = Color.White,
+                                        leadingIconContentColor = Color.White
+                                    ),
+                                    modifier = Modifier.height(28.dp)
+                                )
+                            } else {
+                                Spacer(Modifier.height(8.dp))
+                                AssistChip(
+                                    onClick = {},
+                                    label = { Text("Shopper", fontSize = 11.sp) },
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        containerColor = Color.White.copy(alpha = 0.2f),
+                                        labelColor = Color.White
+                                    ),
+                                    modifier = Modifier.height(24.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Store picker (store owner mode, multiple stores)
+                    if (storeOwnerMode && ownedStores.size > 1) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Store, null, Modifier.size(16.dp), tint = WiseUpColors.Orange500)
+                            Spacer(Modifier.width(6.dp))
+                            TextButton(onClick = { showStorePicker = true }) {
+                                Text(
+                                    selectedStore?.let { s ->
+                                        "${storeHqNames[s.hqId] ?: ""} - ${s.location}"
+                                    } ?: "Select store",
+                                    fontSize = 12.sp, color = WiseUpColors.TextPrimary
+                                )
+                                Icon(Icons.Default.ArrowDropDown, null, Modifier.size(16.dp))
+                            }
                         }
                     }
 
@@ -188,9 +280,9 @@ fun MainScaffold(navController: NavHostController, onLogout: () -> Unit) {
                             },
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
                             colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = WiseUpColors.Green100,
-                                selectedIconColor = WiseUpColors.Green600,
-                                selectedTextColor = WiseUpColors.Green600
+                                selectedContainerColor = WiseUpColors.Blue100,
+                                selectedIconColor = WiseUpColors.Blue600,
+                                selectedTextColor = WiseUpColors.Blue600
                             )
                         )
                     }
@@ -214,9 +306,9 @@ fun MainScaffold(navController: NavHostController, onLogout: () -> Unit) {
                             },
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
                             colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = WiseUpColors.Green100,
-                                selectedIconColor = WiseUpColors.Green600,
-                                selectedTextColor = WiseUpColors.Green600
+                                selectedContainerColor = WiseUpColors.Blue100,
+                                selectedIconColor = WiseUpColors.Blue600,
+                                selectedTextColor = WiseUpColors.Blue600
                             )
                         )
                     }
@@ -258,6 +350,10 @@ fun MainScaffold(navController: NavHostController, onLogout: () -> Unit) {
                                 Screen.ComparePrices.route -> "Compare Prices"
                                 Screen.ShoppingLists.route -> "Shopping Lists"
                                 Screen.StoreFeedback.route -> "Store Feedback"
+                                Screen.MyStore.route -> "My Store"
+                                Screen.StoreOwnerPrices.route -> "Store Prices"
+                                Screen.StoreAdmin.route -> "Store Admin"
+                                Screen.CustomerFeedback.route -> "Customer Feedback"
                                 Screen.Profile.route -> "Profile"
                                 Screen.About.route -> "About"
                                 Screen.Contact.route -> "Contact"
@@ -310,8 +406,88 @@ fun MainScaffold(navController: NavHostController, onLogout: () -> Unit) {
                     composable(Screen.Profile.route) { ProfileScreen() }
                     composable(Screen.About.route) { AboutScreen() }
                     composable(Screen.Contact.route) { ContactScreen() }
+
+                    // Store Owner screens
+                    composable(Screen.MyStore.route) {
+                        selectedStore?.let { store ->
+                            val hqName = storeHqNames[store.hqId] ?: "Store"
+                            MyStoreScreen(
+                                storeId = store.id,
+                                storeName = "$hqName - ${store.location}"
+                            )
+                        }
+                    }
+                    composable(Screen.StoreOwnerPrices.route) {
+                        selectedStore?.let { store ->
+                            val hqName = storeHqNames[store.hqId] ?: "Store"
+                            StoreOwnerPricesScreen(
+                                storeId = store.id,
+                                storeName = "$hqName - ${store.location}"
+                            )
+                        }
+                    }
+                    composable(Screen.StoreAdmin.route) {
+                        selectedStore?.let { store ->
+                            val hqName = storeHqNames[store.hqId] ?: "Store"
+                            StoreAdminScreen(
+                                store = store,
+                                hqName = hqName,
+                                onStoreUpdated = { updated ->
+                                    selectedStore = updated
+                                    ownedStores = ownedStores.map {
+                                        if (it.id == updated.id) updated else it
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    composable(Screen.CustomerFeedback.route) {
+                        val storeIds = ownedStores.map { it.id }
+                        val storeNameMap = ownedStores.associate { s ->
+                            s.id to "${storeHqNames[s.hqId] ?: ""} - ${s.location}"
+                        }
+                        CustomerFeedbackScreen(
+                            storeIds = storeIds,
+                            storeNames = storeNameMap
+                        )
+                    }
                 }
             }
         }
+    }
+
+    // Store picker dialog
+    if (showStorePicker) {
+        AlertDialog(
+            onDismissRequest = { showStorePicker = false },
+            title = { Text("Select Store") },
+            text = {
+                Column {
+                    ownedStores.forEach { store ->
+                        val hqName = storeHqNames[store.hqId] ?: ""
+                        val isSelected = store.id == selectedStore?.id
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = {
+                                    selectedStore = store
+                                    showStorePicker = false
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("$hqName - ${store.location}")
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showStorePicker = false }) { Text("Close") }
+            }
+        )
     }
 }
