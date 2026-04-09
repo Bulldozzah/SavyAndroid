@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -26,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,10 +57,10 @@ fun MyStoreScreen(storeId: String, storeName: String) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var allItems by remember { mutableStateOf<List<StoreProductItem>>(emptyList()) }
     var filteredItems by remember { mutableStateOf<List<StoreProductItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var hasSearched by remember { mutableStateOf(false) }
     var togglingId by remember { mutableStateOf<String?>(null) }
     var editingItemId by remember { mutableStateOf<String?>(null) }
     var editPriceInput by remember { mutableStateOf("") }
@@ -80,58 +82,100 @@ fun MyStoreScreen(storeId: String, storeName: String) {
         if (granted) showScanner = true
     }
 
-    // Load all products for this store
-    fun loadProducts() {
+    // Search products in this store by GTIN or description
+    fun searchProducts() {
+        val q = searchQuery.trim()
+        if (q.isBlank()) return
+        isLoading = true
+        hasSearched = true
         scope.launch {
-            isLoading = true
             try {
-                val prices: List<StorePrice> = SupabaseClient.client.from("store_prices")
-                    .select { filter { eq("store_id", storeId) } }
+                // Find matching products by GTIN or description
+                val matchingProducts: List<Product> = SupabaseClient.client.from("products")
+                    .select {
+                        filter {
+                            or {
+                                ilike("gtin", "%$q%")
+                                ilike("description", "%$q%")
+                            }
+                        }
+                    }
                     .decodeList()
+                val gtinMap = matchingProducts.associate { it.gtin to it.description }
 
-                val gtins = prices.map { it.productGtin }.distinct()
-                val products = mutableMapOf<String, String>()
-                if (gtins.isNotEmpty()) {
-                    // Fetch in batches to avoid query limits
-                    gtins.chunked(50).forEach { batch ->
-                        val prods: List<Product> = SupabaseClient.client.from("products")
-                            .select { filter { isIn("gtin", batch) } }
+                // Get store prices for matching GTINs in this store
+                val results = mutableListOf<StoreProductItem>()
+                if (gtinMap.isNotEmpty()) {
+                    gtinMap.keys.toList().chunked(50).forEach { batch ->
+                        val prices: List<StorePrice> = SupabaseClient.client.from("store_prices")
+                            .select {
+                                filter {
+                                    eq("store_id", storeId)
+                                    isIn("product_gtin", batch)
+                                }
+                            }
                             .decodeList()
-                        prods.forEach { products[it.gtin] = it.description }
+                        prices.forEach { sp ->
+                            results.add(
+                                StoreProductItem(
+                                    storePrice = sp,
+                                    productDescription = gtinMap[sp.productGtin] ?: sp.productGtin
+                                )
+                            )
+                        }
                     }
                 }
-
-                allItems = prices.map { sp ->
-                    StoreProductItem(
-                        storePrice = sp,
-                        productDescription = products[sp.productGtin] ?: sp.productGtin
-                    )
-                }.sortedBy { it.productDescription.lowercase() }
-
-                filteredItems = allItems
+                filteredItems = results.sortedBy { it.productDescription.lowercase() }
             } catch (_: Exception) { }
             isLoading = false
         }
     }
 
-    LaunchedEffect(storeId) { loadProducts() }
-
-    // Filter when search changes
-    LaunchedEffect(searchQuery, allItems) {
-        val q = searchQuery.trim().lowercase()
-        filteredItems = if (q.isBlank()) allItems
-        else allItems.filter {
-            it.productDescription.lowercase().contains(q) ||
-                    it.storePrice.productGtin.contains(q)
-        }
-    }
-
-    // Handle barcode scan
+    // Handle barcode scan — set query and trigger search
     LaunchedEffect(scannedGtin) {
         scannedGtin?.let { gtin ->
             searchQuery = gtin
             showScanner = false
             scannedGtin = null
+            // Auto-trigger search after scan
+            hasSearched = true
+            isLoading = true
+            try {
+                val matchingProducts: List<Product> = SupabaseClient.client.from("products")
+                    .select {
+                        filter {
+                            or {
+                                ilike("gtin", "%$gtin%")
+                                ilike("description", "%$gtin%")
+                            }
+                        }
+                    }
+                    .decodeList()
+                val gtinMap = matchingProducts.associate { it.gtin to it.description }
+                val results = mutableListOf<StoreProductItem>()
+                if (gtinMap.isNotEmpty()) {
+                    gtinMap.keys.toList().chunked(50).forEach { batch ->
+                        val prices: List<StorePrice> = SupabaseClient.client.from("store_prices")
+                            .select {
+                                filter {
+                                    eq("store_id", storeId)
+                                    isIn("product_gtin", batch)
+                                }
+                            }
+                            .decodeList()
+                        prices.forEach { sp ->
+                            results.add(
+                                StoreProductItem(
+                                    storePrice = sp,
+                                    productDescription = gtinMap[sp.productGtin] ?: sp.productGtin
+                                )
+                            )
+                        }
+                    }
+                }
+                filteredItems = results.sortedBy { it.productDescription.lowercase() }
+            } catch (_: Exception) { }
+            isLoading = false
         }
     }
 
@@ -158,7 +202,7 @@ fun MyStoreScreen(storeId: String, storeName: String) {
                     onConflict = "store_id,product_gtin"
                 }
                 // Update local state
-                allItems = allItems.map {
+                filteredItems = filteredItems.map {
                     if (it.storePrice.id == item.storePrice.id) {
                         it.copy(storePrice = it.storePrice.copy(
                             price = newPrice, verified = true,
@@ -185,7 +229,7 @@ fun MyStoreScreen(storeId: String, storeName: String) {
                     filter { eq("id", item.storePrice.id) }
                 }
                 // Update local state
-                allItems = allItems.map {
+                filteredItems = filteredItems.map {
                     if (it.storePrice.id == item.storePrice.id) {
                         it.copy(storePrice = it.storePrice.copy(inStock = newInStock))
                     } else it
@@ -208,21 +252,9 @@ fun MyStoreScreen(storeId: String, storeName: String) {
             ) {
                 Icon(Icons.Default.Store, null, tint = WiseUpColors.Blue500, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
+                Column {
                     Text(storeName, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                    Text(
-                        "${allItems.size} products",
-                        fontSize = 12.sp, color = WiseUpColors.TextSecondary
-                    )
-                }
-                // Stock summary
-                val inStockCount = allItems.count { it.storePrice.inStock }
-                val outCount = allItems.size - inStockCount
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("$inStockCount in stock", fontSize = 11.sp, color = WiseUpColors.Blue500, fontWeight = FontWeight.Medium)
-                    if (outCount > 0) {
-                        Text("$outCount out", fontSize = 11.sp, color = WiseUpColors.Red500)
-                    }
+                    Text("Search products by GTIN or name", fontSize = 12.sp, color = WiseUpColors.TextSecondary)
                 }
             }
         }
@@ -240,9 +272,18 @@ fun MyStoreScreen(storeId: String, storeName: String) {
                 onValueChange = { searchQuery = it },
                 label = { Text("Search GTIN or product name") },
                 leadingIcon = { Icon(Icons.Default.Search, null) },
+                trailingIcon = {
+                    if (searchQuery.isNotBlank()) {
+                        IconButton(onClick = { searchProducts() }) {
+                            Icon(Icons.Default.Search, "Search", tint = WiseUpColors.Blue500)
+                        }
+                    }
+                },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(12.dp),
-                singleLine = true
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { searchProducts() })
             )
             IconButton(
                 onClick = {
@@ -341,8 +382,8 @@ fun MyStoreScreen(storeId: String, storeName: String) {
                     Icon(Icons.Default.Inventory, null, Modifier.size(48.dp), tint = WiseUpColors.TextMuted)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        if (searchQuery.isNotBlank()) "No products match \"$searchQuery\""
-                        else "No products in this store yet",
+                        if (hasSearched) "No products match \"$searchQuery\""
+                        else "Search for products by GTIN or name",
                         color = WiseUpColors.TextMuted
                     )
                 }

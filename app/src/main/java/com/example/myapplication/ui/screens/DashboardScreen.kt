@@ -40,6 +40,7 @@ fun DashboardScreen() {
     var banners by remember { mutableStateOf<List<AdBanner>>(emptyList()) }
     var promotions by remember { mutableStateOf<List<AdPromotion>>(emptyList()) }
     var generalAds by remember { mutableStateOf<List<AdGeneral>>(emptyList()) }
+    var productDescriptions by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var isLoading by remember { mutableStateOf(true) }
     var currentBannerIndex by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -61,6 +62,15 @@ fun DashboardScreen() {
                     filter { eq("is_active", true) }
                 }
                 .decodeList()
+
+            // Fetch product descriptions for promotional items
+            val gtins = promotions.mapNotNull { it.productGtin }.distinct()
+            if (gtins.isNotEmpty()) {
+                val products: List<Product> = SupabaseClient.client.from("products")
+                    .select { filter { isIn("gtin", gtins) } }
+                    .decodeList()
+                productDescriptions = products.associate { it.gtin to it.description }
+            }
         } catch (_: Exception) { }
         isLoading = false
     }
@@ -282,7 +292,9 @@ fun DashboardScreen() {
                                 }
                                 Column(modifier = Modifier.padding(10.dp)) {
                                     Text(
-                                        text = promo.productGtin ?: "Special Deal",
+                                        text = promo.productGtin?.let { gtin ->
+                                            productDescriptions[gtin] ?: gtin
+                                        } ?: "Special Deal",
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Medium,
                                         maxLines = 1,
