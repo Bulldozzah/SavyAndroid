@@ -261,11 +261,12 @@ fun ShoppingListsScreen() {
             Button(
                 onClick = { showCreateDialog = true },
                 colors = ButtonDefaults.buttonColors(containerColor = WiseUpColors.Blue500),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                enabled = lists.size < 3
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("New List")
+                Text(if (lists.size >= 3) "Max 3 Lists" else "New List")
             }
         }
 
