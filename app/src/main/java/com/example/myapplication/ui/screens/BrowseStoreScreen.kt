@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,8 +61,9 @@ fun BrowseStoreScreen() {
     var storeSearch by remember { mutableStateOf("") }
     var isLoadingStores by remember { mutableStateOf(true) }
 
-    // ---- Selected store state ----
-    var selectedStore by remember { mutableStateOf<Store?>(null) }
+    // ---- Selected store state (ID saved across recomposition) ----
+    var selectedStoreId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedStore = stores.firstOrNull { it.id == selectedStoreId }
 
     // ---- Virtual store state ----
     var storePrices by remember { mutableStateOf<List<StorePrice>>(emptyList()) }
@@ -315,7 +317,18 @@ fun BrowseStoreScreen() {
     }
 
     // ---- MAIN CONTENT ----
-    if (selectedStore == null) {
+    if (selectedStoreId != null && selectedStore == null && isLoadingStores) {
+        // Stores still loading but user had a store selected — show loading
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = WiseUpColors.Blue500)
+        }
+    } else if (selectedStore == null) {
+        // Clear stale ID if stores loaded but store not found
+        LaunchedEffect(selectedStoreId, isLoadingStores) {
+            if (selectedStoreId != null && !isLoadingStores) {
+                selectedStoreId = null
+            }
+        }
         // ======== STORE PICKER ========
         Column(modifier = Modifier.fillMaxSize()) {
             // Search bar
@@ -395,7 +408,7 @@ fun BrowseStoreScreen() {
                                     }
                                     Button(
                                         onClick = {
-                                            selectedStore = store
+                                            selectedStoreId = store.id
                                             hasSearchedProducts = false
                                             productSearch = ""
                                         },
@@ -436,7 +449,7 @@ fun BrowseStoreScreen() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = {
-                        selectedStore = null
+                        selectedStoreId = null
                         storePrices = emptyList()
                         products = emptyMap()
                         productSearch = ""
@@ -450,37 +463,8 @@ fun BrowseStoreScreen() {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(hqName, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
                         Text(store.location, fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f))
-                    }
-                    // Map button — opens Google Maps
-                    if (store.latitude != null && store.longitude != null || store.address != null) {
-                        val context = LocalContext.current
-                        Spacer(Modifier.width(8.dp))
-                        OutlinedButton(
-                            onClick = {
-                                val uri = if (store.latitude != null && store.longitude != null) {
-                                    Uri.parse("geo:${store.latitude},${store.longitude}?q=${store.latitude},${store.longitude}(${Uri.encode(hqName + " - " + store.location)})")
-                                } else {
-                                    Uri.parse("geo:0,0?q=${Uri.encode(store.address)}")
-                                }
-                                val mapIntent = Intent(Intent.ACTION_VIEW, uri).apply {
-                                    setPackage("com.google.android.apps.maps")
-                                }
-                                if (mapIntent.resolveActivity(context.packageManager) != null) {
-                                    context.startActivity(mapIntent)
-                                } else {
-                                    val browserUri = if (store.latitude != null && store.longitude != null) {
-                                        Uri.parse("https://www.google.com/maps/search/?api=1&query=${store.latitude},${store.longitude}")
-                                    } else {
-                                        Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(store.address)}")
-                                    }
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
-                                }
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White)
-                        ) {
-                            Text("Map", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        store.address?.let {
+                            Text(it, fontSize = 10.sp, color = Color.White.copy(alpha = 0.6f))
                         }
                     }
                 }
@@ -524,11 +508,62 @@ fun BrowseStoreScreen() {
                 }
             }
 
+            // Share List + Map row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val mapContext = LocalContext.current
+                // Share List button
+                FilledTonalButton(
+                    onClick = { showShareListPicker = true },
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = WiseUpColors.Blue100
+                    ),
+                    modifier = Modifier.weight(1f).height(40.dp)
+                ) {
+                    Icon(Icons.Default.Share, null, Modifier.size(16.dp), tint = WiseUpColors.Blue500)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Share List", fontSize = 12.sp, color = WiseUpColors.Blue500)
+                }
+                // Map / Navigate button
+                FilledTonalButton(
+                    onClick = {
+                        val label = "$hqName - ${store.location}"
+                        val uri = if (store.latitude != null && store.longitude != null) {
+                            Uri.parse("geo:${store.latitude},${store.longitude}?q=${store.latitude},${store.longitude}(${Uri.encode(label)})")
+                        } else {
+                            val query = store.address ?: store.location
+                            Uri.parse("geo:0,0?q=${Uri.encode(query)}")
+                        }
+                        val mapIntent = Intent(Intent.ACTION_VIEW, uri)
+                        try {
+                            mapContext.startActivity(Intent.createChooser(mapIntent, "Open map with"))
+                        } catch (_: Exception) { }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = WiseUpColors.Blue100
+                    ),
+                    modifier = Modifier.weight(1f).height(40.dp)
+                ) {
+                    Icon(Icons.Default.Map, null, Modifier.size(16.dp), tint = WiseUpColors.Blue500)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Map", fontSize = 12.sp, color = WiseUpColors.Blue500)
+                }
+            }
+
             // Search bar + Scan button
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -569,36 +604,23 @@ fun BrowseStoreScreen() {
                         tint = if (showScanner) Color.White else WiseUpColors.Blue500
                     )
                 }
-                // Share List button
-                FilledTonalButton(
-                    onClick = { showShareListPicker = true },
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = WiseUpColors.Blue100
-                    ),
-                    modifier = Modifier.height(48.dp)
-                ) {
-                    Icon(Icons.Default.Share, null, Modifier.size(16.dp), tint = WiseUpColors.Blue500)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Share", fontSize = 11.sp, color = WiseUpColors.Blue500)
-                }
             }
 
-            // Share list picker dialog
+            // Share list picker dialog — only lists assigned to this store
             if (showShareListPicker) {
                 val shareContext = LocalContext.current
+                val storeAssignedLists = shoppingLists.filter { it.assignedStoreId == store.id }
                 AlertDialog(
                     onDismissRequest = { showShareListPicker = false },
                     title = { Text("Share Shopping List", fontWeight = FontWeight.Bold) },
                     text = {
-                        if (shoppingLists.isEmpty()) {
-                            Text("You have no shopping lists yet.")
+                        if (storeAssignedLists.isEmpty()) {
+                            Text("No shopping lists assigned to this store.\nAssign a list from Shopping Lists screen.")
                         } else {
                             Column {
-                                Text("Select a list to share:", fontSize = 13.sp, color = WiseUpColors.TextSecondary)
+                                Text("Lists assigned to $hqName:", fontSize = 13.sp, color = WiseUpColors.TextSecondary)
                                 Spacer(Modifier.height(8.dp))
-                                shoppingLists.forEach { list ->
+                                storeAssignedLists.forEach { list ->
                                     Card(
                                         modifier = Modifier
                                             .fillMaxWidth()

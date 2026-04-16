@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -43,9 +44,9 @@ data class NavItem(
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-    var isAuthenticated by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(true) }
-    var needsProfileSetup by remember { mutableStateOf(false) }
+    var isAuthenticated by rememberSaveable { mutableStateOf(false) }
+    var isLoading by rememberSaveable { mutableStateOf(true) }
+    var needsProfileSetup by rememberSaveable { mutableStateOf(false) }
 
     // Collect sessionStatus — this properly waits for session restoration from storage
     LaunchedEffect(Unit) {
@@ -107,8 +108,8 @@ fun MainScaffold(navController: NavHostController, onLogout: () -> Unit) {
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
     // Store owner state
-    var isStoreOwner by remember { mutableStateOf(false) }
-    var storeOwnerMode by remember { mutableStateOf(false) }
+    var isStoreOwner by rememberSaveable { mutableStateOf(false) }
+    var storeOwnerMode by rememberSaveable { mutableStateOf(false) }
     var ownedStores by remember { mutableStateOf<List<Store>>(emptyList()) }
     var storeHqNames by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var selectedStore by remember { mutableStateOf<Store?>(null) }
@@ -156,7 +157,6 @@ fun MainScaffold(navController: NavHostController, onLogout: () -> Unit) {
     val bottomNavItems = listOf(
         NavItem(Screen.Profile.route, "Profile", Icons.Default.Person),
         NavItem(Screen.About.route, "About", Icons.Default.Info),
-        NavItem(Screen.Contact.route, "Contact", Icons.Default.ContactMail),
     )
 
     ModalNavigationDrawer(

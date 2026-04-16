@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.*
@@ -85,6 +86,41 @@ fun AboutScreen() {
                         Icon(icon, null, tint = WiseUpColors.Blue500, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(12.dp))
                         Text(text, fontSize = 14.sp, color = WiseUpColors.TextPrimary)
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text("Contact Us", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(Modifier.height(16.dp))
+
+                val contacts = listOf(
+                    Triple(Icons.Default.Phone, "Phone", "+260 973 433 321"),
+                    Triple(Icons.AutoMirrored.Filled.Chat, "WhatsApp", "+260 973 433 321"),
+                    Triple(Icons.Default.Email, "Email", "macxiontech@gmail.com"),
+                    Triple(Icons.Default.LocationOn, "Address", "Lusaka, Zambia")
+                )
+
+                contacts.forEach { (icon, label, value) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(icon, null, tint = WiseUpColors.Blue500, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(16.dp))
+                        Column {
+                            Text(label, fontSize = 12.sp, color = WiseUpColors.TextMuted)
+                            Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
                     }
                 }
             }

@@ -1,7 +1,7 @@
 package com.example.myapplication.ui.screens
 
 import android.content.Intent
-
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -74,13 +74,37 @@ fun ShoppingListsScreen() {
                 stores = SupabaseClient.client.from("stores").select().decodeList()
                 val hqs: List<StoreHq> = SupabaseClient.client.from("store_hq").select().decodeList()
                 storeHqs = hqs.associate { it.id to it.name }
+                // Fetch prices for list GTINs from assigned stores (chunked to avoid 1000-row limit)
                 val assignedIds = lists.mapNotNull { it.assignedStoreId }.distinct()
                 val priceMap = mutableMapOf<String, List<StorePrice>>()
+                val gtinList = allGtins.toList()
                 assignedIds.forEach { storeId ->
-                    val prices: List<StorePrice> = SupabaseClient.client.from("store_prices")
-                        .select { filter { eq("store_id", storeId) } }
-                        .decodeList()
-                    priceMap[storeId] = prices
+                    val results = mutableListOf<StorePrice>()
+                    gtinList.chunked(50).forEach { batch ->
+                        val prices: List<StorePrice> = SupabaseClient.client.from("store_prices")
+                            .select {
+                                filter {
+                                    eq("store_id", storeId)
+                                    isIn("product_gtin", batch)
+                                }
+                            }
+                            .decodeList()
+                        results.addAll(prices)
+                    }
+                    priceMap[storeId] = results
+                }
+                // Also fetch prices across all stores for items without assigned store
+                if (gtinList.isNotEmpty()) {
+                    val allPrices = mutableListOf<StorePrice>()
+                    gtinList.chunked(50).forEach { batch ->
+                        val prices: List<StorePrice> = SupabaseClient.client.from("store_prices")
+                            .select {
+                                filter { isIn("product_gtin", batch) }
+                            }
+                            .decodeList()
+                        allPrices.addAll(prices)
+                    }
+                    priceMap["__all__"] = allPrices
                 }
                 storePrices = priceMap
             } catch (_: Exception) { }
@@ -269,16 +293,23 @@ fun ShoppingListsScreen() {
                     val assignedStore = stores.find { it.id == list.assignedStoreId }
                     val hqName = assignedStore?.let { storeHqs[it.hqId] } ?: "Unassigned"
                     val prices = list.assignedStoreId?.let { storePrices[it] } ?: emptyList()
-                    val priceMap = prices.associateBy { it.productGtin }
+                    val assignedPriceMap = prices.associateBy { it.productGtin }
+                    // For unassigned lists, find cheapest price per GTIN across all stores
+                    val allPrices = storePrices["__all__"] ?: emptyList()
+                    val cheapestPriceMap = allPrices.groupBy { it.productGtin }
+                        .mapValues { (_, v) -> v.minByOrNull { it.price }!! }
+                    val priceMap = if (list.assignedStoreId != null) assignedPriceMap else cheapestPriceMap
 
                     var inStockTotal = 0.0
-                    var allTotal = 0.0
+                    var inStockCount = 0
+                    var outOfStockCount = 0
                     listItems.forEach { item ->
                         val sp = priceMap[item.productGtin]
-                        if (sp != null) {
-                            val cost = sp.price * item.quantity
-                            allTotal += cost
-                            if (sp.inStock) inStockTotal += cost
+                        if (sp != null && sp.inStock) {
+                            inStockTotal += sp.price * item.quantity
+                            inStockCount++
+                        } else if (sp != null && !sp.inStock) {
+                            outOfStockCount++
                         }
                     }
 
@@ -296,7 +327,22 @@ fun ShoppingListsScreen() {
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(list.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                    Text("Store: $hqName", fontSize = 12.sp, color = WiseUpColors.TextSecondary)
+                                    if (assignedStore != null) {
+                                        Text(
+                                            "$hqName - ${assignedStore.location}",
+                                            fontSize = 12.sp, color = WiseUpColors.TextSecondary
+                                        )
+                                        assignedStore.address?.let { addr ->
+                                            Text(addr, fontSize = 11.sp, color = WiseUpColors.TextMuted)
+                                        }
+                                        assignedStore.city?.let { city ->
+                                            if (assignedStore.address?.contains(city, ignoreCase = true) != true) {
+                                                Text(city, fontSize = 11.sp, color = WiseUpColors.TextMuted)
+                                            }
+                                        }
+                                    } else {
+                                        Text("Store: Unassigned (cheapest prices)", fontSize = 12.sp, color = WiseUpColors.TextSecondary)
+                                    }
                                     Text("${listItems.size} items", fontSize = 12.sp, color = WiseUpColors.TextMuted)
                                 }
                                 IconButton(onClick = { expandedListId = if (isExpanded) null else list.id }) {
@@ -310,24 +356,43 @@ fun ShoppingListsScreen() {
                             // Totals
                             Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column {
-                                    Text("In-stock total", fontSize = 11.sp, color = WiseUpColors.TextMuted)
+                                    Text("Total (in-stock only)", fontSize = 11.sp, color = WiseUpColors.TextMuted)
                                     Text(CurrencyProvider.formatPrice(inStockTotal), fontWeight = FontWeight.Bold, color = WiseUpColors.Blue500)
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text("All items total", fontSize = 11.sp, color = WiseUpColors.TextMuted)
-                                    Text(CurrencyProvider.formatPrice(allTotal), fontWeight = FontWeight.Bold)
+                                    Text("$inStockCount in stock, $outOfStockCount out", fontSize = 11.sp, color = WiseUpColors.TextMuted)
                                 }
                             }
 
                             list.budget?.let { budget ->
                                 Spacer(Modifier.height(4.dp))
-                                Text("Budget: ${CurrencyProvider.formatPrice(budget)}", fontSize = 12.sp, color = if (allTotal > budget) WiseUpColors.Red500 else WiseUpColors.Blue500)
+                                Text("Budget: ${CurrencyProvider.formatPrice(budget)}", fontSize = 12.sp, color = if (inStockTotal > budget) WiseUpColors.Red500 else WiseUpColors.Blue500)
                             }
 
                             // Action buttons
                             Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                                 IconButton(onClick = { showStoreDialog = list.id }) {
                                     Icon(Icons.Default.Store, null, tint = WiseUpColors.Blue500)
+                                }
+                                // Map / Navigate to store
+                                if (assignedStore != null) {
+                                    IconButton(onClick = {
+                                        val lat = assignedStore.latitude
+                                        val lng = assignedStore.longitude
+                                        val label = "$hqName - ${assignedStore.location}"
+                                        val uri = if (lat != null && lng != null) {
+                                            Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(label)})")
+                                        } else {
+                                            val query = assignedStore.address ?: assignedStore.location
+                                            Uri.parse("geo:0,0?q=${Uri.encode(query)}")
+                                        }
+                                        val mapIntent = Intent(Intent.ACTION_VIEW, uri)
+                                        try {
+                                            context.startActivity(Intent.createChooser(mapIntent, "Open map with"))
+                                        } catch (_: Exception) { }
+                                    }) {
+                                        Icon(Icons.Default.Map, null, tint = WiseUpColors.Blue500)
+                                    }
                                 }
                                 IconButton(onClick = { showBudgetDialog = list.id }) {
                                     Icon(Icons.Default.AttachMoney, null, tint = WiseUpColors.Blue500)
@@ -343,7 +408,7 @@ fun ShoppingListsScreen() {
                                             price?.let { append(" @ ${CurrencyProvider.formatPrice(it.price)}") }
                                             append("\n")
                                         }
-                                        append("\nTotal: ${CurrencyProvider.formatPrice(allTotal)}")
+                                        append("\nTotal (in-stock): ${CurrencyProvider.formatPrice(inStockTotal)}")
                                     }
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
@@ -364,39 +429,119 @@ fun ShoppingListsScreen() {
                                 listItems.forEach { item ->
                                     val prod = products[item.productGtin]
                                     val sp = priceMap[item.productGtin]
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 6.dp)
                                     ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(prod?.description ?: item.productGtin, fontSize = 14.sp)
-                                            Text("Qty: ${item.quantity}", fontSize = 12.sp, color = WiseUpColors.TextMuted)
-                                        }
-                                        Column(horizontalAlignment = Alignment.End) {
-                                            sp?.let {
-                                                Text(CurrencyProvider.formatPrice(it.price * item.quantity), fontWeight = FontWeight.SemiBold)
-                                                VerificationBadge(verified = it.verified)
-                                                Spacer(Modifier.height(2.dp))
-                                                Text(
-                                                    if (it.inStock) "In Stock" else "Out of Stock",
-                                                    fontSize = 11.sp,
-                                                    color = if (it.inStock) WiseUpColors.Blue500 else WiseUpColors.Red500
-                                                )
-                                            } ?: Text("No price", fontSize = 12.sp, color = WiseUpColors.TextMuted)
-                                        }
-                                        IconButton(onClick = {
-                                            scope.launch {
-                                                try {
-                                                    SupabaseClient.client.from("shopping_list_items")
-                                                        .delete { filter { eq("id", item.id) } }
-                                                    isLoading = true; loadData()
-                                                } catch (_: Exception) { }
+                                        // Product name and stock status
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                prod?.description ?: item.productGtin,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            IconButton(onClick = {
+                                                scope.launch {
+                                                    try {
+                                                        SupabaseClient.client.from("shopping_list_items")
+                                                            .delete { filter { eq("id", item.id) } }
+                                                        isLoading = true; loadData()
+                                                    } catch (_: Exception) { }
+                                                }
+                                            }, modifier = Modifier.size(28.dp)) {
+                                                Icon(Icons.Default.Close, null, Modifier.size(14.dp), tint = WiseUpColors.Red500)
                                             }
-                                        }, modifier = Modifier.size(32.dp)) {
-                                            Icon(Icons.Default.Close, null, Modifier.size(16.dp), tint = WiseUpColors.Red500)
+                                        }
+                                        // Price, quantity controls, and line total
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            // Unit price + stock
+                                            Column {
+                                                sp?.let {
+                                                    Text(
+                                                        "@ ${CurrencyProvider.formatPrice(it.price)}",
+                                                        fontSize = 12.sp,
+                                                        color = WiseUpColors.TextSecondary
+                                                    )
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Text(
+                                                            if (it.inStock) "In Stock" else "Out of Stock",
+                                                            fontSize = 11.sp,
+                                                            color = if (it.inStock) WiseUpColors.Blue500 else WiseUpColors.Red500
+                                                        )
+                                                        Spacer(Modifier.width(6.dp))
+                                                        VerificationBadge(verified = it.verified)
+                                                    }
+                                                } ?: Text("No price", fontSize = 12.sp, color = WiseUpColors.TextMuted)
+                                            }
+                                            // Qty controls
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                IconButton(
+                                                    onClick = {
+                                                        if (item.quantity > 1) {
+                                                            scope.launch {
+                                                                try {
+                                                                    SupabaseClient.client.from("shopping_list_items")
+                                                                        .update({ set("quantity", item.quantity - 1) }) {
+                                                                            filter { eq("id", item.id) }
+                                                                        }
+                                                                    loadData()
+                                                                } catch (_: Exception) { }
+                                                            }
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(32.dp),
+                                                    enabled = item.quantity > 1
+                                                ) {
+                                                    Icon(Icons.Default.Remove, null, Modifier.size(18.dp))
+                                                }
+                                                Text(
+                                                    "${item.quantity}",
+                                                    fontSize = 15.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                                )
+                                                IconButton(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            try {
+                                                                SupabaseClient.client.from("shopping_list_items")
+                                                                    .update({ set("quantity", item.quantity + 1) }) {
+                                                                        filter { eq("id", item.id) }
+                                                                    }
+                                                                loadData()
+                                                            } catch (_: Exception) { }
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                                                }
+                                            }
+                                            // Line total
+                                            sp?.let {
+                                                Text(
+                                                    CurrencyProvider.formatPrice(it.price * item.quantity),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp,
+                                                    color = WiseUpColors.Blue500
+                                                )
+                                            }
                                         }
                                     }
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(vertical = 2.dp),
+                                        color = WiseUpColors.TextMuted.copy(alpha = 0.2f)
+                                    )
                                 }
                             }
                         }
