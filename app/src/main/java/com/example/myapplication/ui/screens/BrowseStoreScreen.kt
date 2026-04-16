@@ -642,15 +642,50 @@ fun BrowseStoreScreen() {
                                                             .decodeList()
                                                     } else emptyList()
                                                     val prodMap = prods.associateBy { it.gtin }
+                                                    // Fetch store prices for in-stock total
+                                                    val pricesList = if (gtins.isNotEmpty()) {
+                                                        val result = mutableListOf<StorePrice>()
+                                                        gtins.chunked(50).forEach { batch ->
+                                                            val p: List<StorePrice> = SupabaseClient.client.from("store_prices")
+                                                                .select {
+                                                                    filter {
+                                                                        eq("store_id", store.id)
+                                                                        isIn("product_gtin", batch)
+                                                                    }
+                                                                }
+                                                                .decodeList()
+                                                            result.addAll(p)
+                                                        }
+                                                        result
+                                                    } else emptyList()
+                                                    val priceMap = pricesList.associateBy { it.productGtin }
+                                                    var inStockTotal = 0.0
+                                                    items.forEach { item ->
+                                                        val sp = priceMap[item.productGtin]
+                                                        if (sp != null && sp.inStock) {
+                                                            inStockTotal += sp.price * item.quantity
+                                                        }
+                                                    }
                                                     val listText = buildString {
                                                         appendLine("🛒 ${list.name}")
+                                                        appendLine("Store: $hqName - ${store.location}")
+                                                        store.address?.let { appendLine("Address: $it") }
+                                                        store.city?.let { city ->
+                                                            if (store.address?.contains(city, ignoreCase = true) != true) {
+                                                                appendLine("City: $city")
+                                                            }
+                                                        }
                                                         if (list.budget != null) appendLine("Budget: ${CurrencyProvider.formatPrice(list.budget)}")
                                                         appendLine("────────────────")
                                                         items.forEachIndexed { idx, item ->
                                                             val name = prodMap[item.productGtin]?.description ?: item.productGtin
-                                                            appendLine("${idx + 1}. $name  x${item.quantity}")
+                                                            val sp = priceMap[item.productGtin]
+                                                            val priceStr = sp?.let { " @ ${CurrencyProvider.formatPrice(it.price)}" } ?: ""
+                                                            val stockStr = sp?.let { if (it.inStock) " ✓" else " ✗" } ?: ""
+                                                            appendLine("${idx + 1}. $name  x${item.quantity}$priceStr$stockStr")
                                                         }
                                                         appendLine("────────────────")
+                                                        appendLine("Total (in-stock): ${CurrencyProvider.formatPrice(inStockTotal)}")
                                                         appendLine("Shared from WiseUp Shop")
                                                     }
                                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {

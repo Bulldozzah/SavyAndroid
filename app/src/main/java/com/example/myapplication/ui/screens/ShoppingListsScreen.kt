@@ -400,12 +400,24 @@ fun ShoppingListsScreen() {
                                 IconButton(onClick = {
                                     val msg = buildString {
                                         append("*${list.name}*\n")
-                                        append("Store: $hqName\n\n")
-                                        listItems.forEach { item ->
+                                        if (assignedStore != null) {
+                                            append("Store: $hqName - ${assignedStore.location}\n")
+                                            assignedStore.address?.let { append("Address: $it\n") }
+                                            assignedStore.city?.let { city ->
+                                                if (assignedStore.address?.contains(city, ignoreCase = true) != true) {
+                                                    append("City: $city\n")
+                                                }
+                                            }
+                                        } else {
+                                            append("Store: Unassigned\n")
+                                        }
+                                        append("\n")
+                                        listItems.forEachIndexed { idx, item ->
                                             val prod = products[item.productGtin]
                                             val price = priceMap[item.productGtin]
-                                            append("- ${prod?.description ?: item.productGtin} x${item.quantity}")
+                                            append("${idx + 1}. ${prod?.description ?: item.productGtin} x${item.quantity}")
                                             price?.let { append(" @ ${CurrencyProvider.formatPrice(it.price)}") }
+                                            price?.let { append(if (it.inStock) " ✓" else " ✗") }
                                             append("\n")
                                         }
                                         append("\nTotal (in-stock): ${CurrencyProvider.formatPrice(inStockTotal)}")
