@@ -84,15 +84,43 @@ fun ComparePricesScreen() {
         isLoading = false
     }
 
+    suspend fun fetchProductNames(gtins: List<String>): Map<String, String> {
+        val prodNames = mutableMapOf<String, String>()
+        if (gtins.isNotEmpty()) {
+            gtins.chunked(50).forEach { batch ->
+                try {
+                    val prods: List<Product> = SupabaseClient.client.from("products")
+                        .select { filter { isIn("gtin", batch) } }
+                        .decodeList()
+                    prods.forEach { prodNames[it.gtin] = it.description }
+                } catch (_: Exception) { }
+            }
+        }
+        return prodNames
+    }
+
     suspend fun buildResult(
         store: Store,
         listItems: List<ShoppingListItem>,
+        productNames: Map<String, String>,
         distanceKm: Double? = null
     ): ComparisonResult? {
         return try {
-            val prices: List<StorePrice> = SupabaseClient.client.from("store_prices")
-                .select { filter { eq("store_id", store.id) } }
-                .decodeList()
+            val gtins = listItems.map { it.productGtin }.distinct()
+            val prices = mutableListOf<StorePrice>()
+            if (gtins.isNotEmpty()) {
+                gtins.chunked(50).forEach { batch ->
+                    val p: List<StorePrice> = SupabaseClient.client.from("store_prices")
+                        .select {
+                            filter {
+                                eq("store_id", store.id)
+                                isIn("product_gtin", batch)
+                            }
+                        }
+                        .decodeList()
+                    prices.addAll(p)
+                }
+            }
             val priceMap = prices.associateBy { it.productGtin }
             var totalInStock = 0.0; var totalAll = 0.0
             var inStockCount = 0; var missingCount = 0
@@ -114,7 +142,9 @@ fun ComparePricesScreen() {
                 itemsInStock = inStockCount,
                 itemsMissing = missingCount,
                 priceMap = resultPriceMap,
-                distanceKm = distanceKm
+                distanceKm = distanceKm,
+                listItems = listItems,
+                productNames = productNames
             )
         } catch (_: Exception) { null }
     }
@@ -124,19 +154,40 @@ fun ComparePricesScreen() {
         if (selectedStoreIds.isEmpty()) return
         isComparing = true
         autoCheckError = null
-        scope.launch {
-            try {
-                val listItems: List<ShoppingListItem> = SupabaseClient.client.from("shopping_list_items")
-                    .select { filter { eq("shopping_list_id", listId) } }
-                    .decodeList()
-                val compResults = mutableListOf<ComparisonResult>()
-                selectedStoreIds.forEach { storeId ->
-                    val store = stores.find { it.id == storeId } ?: return@forEach
-                    buildResult(store, listItems)?.let { compResults.add(it) }
-                }
-                results = compResults.sortedBy { it.totalInStock }
-            } catch (_: Exception) { }
-            isComparing = false
+
+        fun runCompare(userLat: Double?, userLon: Double?) {
+            scope.launch {
+                try {
+                    val listItems: List<ShoppingListItem> = SupabaseClient.client.from("shopping_list_items")
+                        .select { filter { eq("shopping_list_id", listId) } }
+                        .decodeList()
+                    val gtins = listItems.map { it.productGtin }.distinct()
+                    val prodNames = fetchProductNames(gtins)
+                    val compResults = mutableListOf<ComparisonResult>()
+                    selectedStoreIds.forEach { storeId ->
+                        val store = stores.find { it.id == storeId } ?: return@forEach
+                        val dist = if (userLat != null && userLon != null
+                            && store.latitude != null && store.longitude != null) {
+                            haversineKm(userLat, userLon, store.latitude, store.longitude)
+                        } else null
+                        buildResult(store, listItems, prodNames, distanceKm = dist)?.let { compResults.add(it) }
+                    }
+                    // Rank by cheapest in-stock total (primary), then distance (secondary)
+                    results = compResults.sortedWith(
+                        compareBy({ it.totalInStock }, { it.distanceKm ?: Double.MAX_VALUE })
+                    )
+                } catch (_: Exception) { }
+                isComparing = false
+            }
+        }
+
+        if (hasLocationPermission) {
+            val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+            fusedClient.lastLocation
+                .addOnSuccessListener { loc -> runCompare(loc?.latitude, loc?.longitude) }
+                .addOnFailureListener { runCompare(null, null) }
+        } else {
+            runCompare(null, null)
         }
     }
 
@@ -164,21 +215,38 @@ fun ComparePricesScreen() {
                         .from("shopping_list_items")
                         .select { filter { eq("shopping_list_id", listId) } }
                         .decodeList()
-                    val gtins = listItems.map { it.productGtin }.distinct()
-                    // Find stores that have at least one item from the list
+                    // Consider ALL stores with coordinates (not just the closest)
+                    // so users see results from wider area too.
                     val candidateStores = stores.filter { store ->
                         store.latitude != null && store.longitude != null
                     }.map { store ->
                         val dist = haversineKm(userLat, userLon, store.latitude!!, store.longitude!!)
                         store to dist
-                    }.sortedBy { it.second }.take(5)
+                    }.sortedBy { it.second }
 
+                    val gtins = listItems.map { it.productGtin }.distinct()
+                    val prodNames = fetchProductNames(gtins)
                     val compResults = mutableListOf<ComparisonResult>()
                     candidateStores.forEach { (store, dist) ->
-                        buildResult(store, listItems, distanceKm = dist)?.let { compResults.add(it) }
+                        buildResult(store, listItems, prodNames, distanceKm = dist)?.let { compResults.add(it) }
                     }
-                    results = compResults.sortedBy { it.distanceKm }
-                    selectedStoreIds = compResults.map { it.store.id }.toSet()
+                    // Show all stores that have any of the list products (even out of stock).
+                    // Rank: cheapest in-stock total first, then by distance. Take top 5.
+                    val ranked = compResults
+                        .sortedWith(
+                            compareBy(
+                                // Stores with in-stock items first
+                                { if (it.itemsInStock > 0) 0 else 1 },
+                                { it.totalInStock },
+                                { it.distanceKm ?: Double.MAX_VALUE }
+                            )
+                        )
+                        .take(5)
+                    results = ranked
+                    selectedStoreIds = ranked.map { it.store.id }.toSet()
+                    if (ranked.isEmpty()) {
+                        autoCheckError = "No stores stock items from this list."
+                    }
                 } catch (_: Exception) {
                     autoCheckError = "Failed to run auto-check"
                 }
@@ -192,30 +260,80 @@ fun ComparePricesScreen() {
 
     // Store selector dialog
     if (showStoreSelector) {
+        var storeSearchQuery by remember { mutableStateOf("") }
+        val query = storeSearchQuery.trim().lowercase()
+        // Already-selected stores always shown at top, then filtered stores
+        val selectedStores = stores.filter { selectedStoreIds.contains(it.id) }
+        val unselectedStores = stores.filter { !selectedStoreIds.contains(it.id) }
+        val filteredUnselected = if (query.isBlank()) {
+            unselectedStores.take(10)
+        } else {
+            unselectedStores.filter { store ->
+                val hq = storeHqs[store.hqId] ?: ""
+                hq.lowercase().contains(query) ||
+                        store.location.lowercase().contains(query) ||
+                        (store.address?.lowercase()?.contains(query) == true) ||
+                        (store.city?.lowercase()?.contains(query) == true)
+            }
+        }
+        val displayStores = selectedStores + filteredUnselected
+
         AlertDialog(
             onDismissRequest = { showStoreSelector = false },
             title = { Text("Select Stores (up to 5)") },
             text = {
-                LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
-                    items(stores) { store ->
-                        val hqName = storeHqs[store.hqId] ?: "Unknown"
-                        val isSelected = selectedStoreIds.contains(store.id)
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isSelected,
-                                onCheckedChange = { checked ->
-                                    selectedStoreIds = if (checked) {
-                                        if (selectedStoreIds.size < 5) selectedStoreIds + store.id
-                                        else selectedStoreIds
-                                    } else {
-                                        selectedStoreIds - store.id
+                Column {
+                    OutlinedTextField(
+                        value = storeSearchQuery,
+                        onValueChange = { storeSearchQuery = it },
+                        placeholder = { Text("Search stores...", fontSize = 13.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(18.dp)) },
+                        trailingIcon = {
+                            if (storeSearchQuery.isNotEmpty()) {
+                                IconButton(onClick = { storeSearchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, null, Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    if (query.isBlank() && unselectedStores.size > 10) {
+                        Text(
+                            "Showing first 10 stores. Search to find more.",
+                            fontSize = 11.sp,
+                            color = WiseUpColors.TextMuted,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
+                    LazyColumn(modifier = Modifier.heightIn(max = 350.dp)) {
+                        items(displayStores) { store ->
+                            val hqName = storeHqs[store.hqId] ?: "Unknown"
+                            val isSelected = selectedStoreIds.contains(store.id)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = { checked ->
+                                        selectedStoreIds = if (checked) {
+                                            if (selectedStoreIds.size < 5) selectedStoreIds + store.id
+                                            else selectedStoreIds
+                                        } else {
+                                            selectedStoreIds - store.id
+                                        }
+                                    }
+                                )
+                                Column(modifier = Modifier.padding(start = 8.dp)) {
+                                    Text("$hqName - ${store.location}", fontSize = 14.sp)
+                                    store.address?.let {
+                                        Text(it, fontSize = 11.sp, color = WiseUpColors.TextMuted)
                                     }
                                 }
-                            )
-                            Text("$hqName - ${store.location}", modifier = Modifier.padding(start = 8.dp))
+                            }
                         }
                     }
                 }
@@ -387,19 +505,141 @@ fun ComparePricesScreen() {
                                         }
                                     }
                                 }
-                                Spacer(Modifier.height(8.dp))
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Column {
-                                        Text("In-Stock Total", fontSize = 12.sp, color = WiseUpColors.TextMuted)
-                                        Text(CurrencyProvider.formatPrice(result.totalInStock), fontWeight = FontWeight.Bold, color = WiseUpColors.Blue500)
+                                Spacer(Modifier.height(10.dp))
+                                // Prominent totals bar
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("In-Stock Total", fontSize = 11.sp, color = WiseUpColors.TextMuted)
+                                        Text(
+                                            CurrencyProvider.formatPrice(result.totalInStock),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 20.sp,
+                                            color = if (isCheapest) WiseUpColors.Green600 else WiseUpColors.Blue500
+                                        )
                                     }
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("Items In Stock", fontSize = 12.sp, color = WiseUpColors.TextMuted)
-                                        Text("${result.itemsInStock}", fontWeight = FontWeight.Bold)
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.End
+                                    ) {
+                                        Text("All Items Total", fontSize = 11.sp, color = WiseUpColors.TextMuted)
+                                        Text(
+                                            CurrencyProvider.formatPrice(result.totalAll),
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 15.sp,
+                                            color = WiseUpColors.TextSecondary
+                                        )
                                     }
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text("Missing", fontSize = 12.sp, color = WiseUpColors.TextMuted)
-                                        Text("${result.itemsMissing}", fontWeight = FontWeight.Bold, color = WiseUpColors.Red500)
+                                }
+                                Spacer(Modifier.height(6.dp))
+
+                                // Expandable in-stock / missing sections
+                                var showItems by remember { mutableStateOf(false) }
+                                val inStockItems = result.listItems.filter { item ->
+                                    val sp = result.priceMap[item.productGtin]
+                                    sp != null && sp.inStock
+                                }
+                                val missingItems = result.listItems.filter { item ->
+                                    val sp = result.priceMap[item.productGtin]
+                                    sp == null || !sp.inStock
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "✓ ${result.itemsInStock} in stock  •  ✗ ${result.itemsMissing} missing",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = WiseUpColors.TextSecondary
+                                    )
+                                    IconButton(
+                                        onClick = { showItems = !showItems },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            if (showItems) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                            contentDescription = if (showItems) "Collapse" else "Expand",
+                                            modifier = Modifier.size(20.dp),
+                                            tint = WiseUpColors.Blue500
+                                        )
+                                    }
+                                }
+
+                                if (showItems) {
+                                    if (inStockItems.isNotEmpty()) {
+                                        Text(
+                                            "In Stock",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = WiseUpColors.Green600,
+                                            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                                        )
+                                        inStockItems.forEach { item ->
+                                            val name = result.productNames[item.productGtin] ?: item.productGtin
+                                            val sp = result.priceMap[item.productGtin]
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    "$name x${item.quantity}",
+                                                    fontSize = 12.sp,
+                                                    modifier = Modifier.weight(1f),
+                                                    color = WiseUpColors.TextSecondary
+                                                )
+                                                sp?.let {
+                                                    Text(
+                                                        CurrencyProvider.formatPrice(it.price * item.quantity),
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = WiseUpColors.Green600
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (missingItems.isNotEmpty()) {
+                                        Text(
+                                            "Missing / Out of Stock",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = WiseUpColors.Red500,
+                                            modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
+                                        )
+                                        missingItems.forEach { item ->
+                                            val name = result.productNames[item.productGtin] ?: item.productGtin
+                                            val sp = result.priceMap[item.productGtin]
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    "$name x${item.quantity}",
+                                                    fontSize = 12.sp,
+                                                    modifier = Modifier.weight(1f),
+                                                    color = WiseUpColors.TextSecondary
+                                                )
+                                                sp?.let {
+                                                    Text(
+                                                        CurrencyProvider.formatPrice(it.price * item.quantity),
+                                                        fontSize = 12.sp,
+                                                        color = WiseUpColors.Red500
+                                                    )
+                                                } ?: Text(
+                                                    "N/A",
+                                                    fontSize = 12.sp,
+                                                    color = WiseUpColors.TextMuted
+                                                )
+                                            }
+                                        }
                                     }
                                 }
 

@@ -206,5 +206,7 @@ data class ComparisonResult(
     val itemsInStock: Int,
     val itemsMissing: Int,
     val priceMap: Map<String, StorePrice?>,
-    val distanceKm: Double? = null
+    val distanceKm: Double? = null,
+    val listItems: List<ShoppingListItem> = emptyList(),
+    val productNames: Map<String, String> = emptyMap()
 )
